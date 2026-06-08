@@ -2,7 +2,7 @@
 #include <cstdlib>
 
 #include <glad/glad.h>
-///
+// link after glad
 #include <GLFW/glfw3.h>
 
 #define SCREEN_WIDTH 1024
@@ -28,14 +28,14 @@ size_t read_file(const char *path, const char **output) {
 	}
 	fseek(f, 0, SEEK_END);
 	size_t file_s = ftell(f);
-	if (file_s+1 > FILE_RD_S_MAX) {
+	if (file_s + 1 > FILE_RD_S_MAX) {
 		fprintf(stderr,
 			"Failed to read file: Max file size allowed exceeded: "
 			"Max File size %d, file path: %s",
 			FILE_RD_S_MAX, path);
 		return 0;
 	}
-	char *buf = (char *)malloc(file_s+1);
+	char *buf = (char *)malloc(file_s + 1);
 	fseek(f, 0, SEEK_SET);
 	size_t bytes_read = fread(buf, file_s, 1, f);
 	fclose(f);
