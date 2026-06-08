@@ -38,5 +38,16 @@ target_link_libraries(glad PUBLIC OpenGL::GL)
 # compile binary
 add_executable(${CMAKE_PROJECT_NAME} ${SOURCES})
 
+# tinygltf
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/tinygltf-3.0.0)
+
+# stb
+add_library(stb INTERFACE)
+target_include_directories(stb INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/lib/stb)
+
+# glm
+add_library(glm INTERFACE)
+target_include_directories(glm INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/lib/glm)
+
 # link binary
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE glfw glad)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE glfw glad stb tinygltf glm)
