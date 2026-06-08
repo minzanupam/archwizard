@@ -44,62 +44,20 @@ size_t read_file(const char *path, const char **output) {
 	return bytes_read;
 }
 
-int main() {
-	unsigned int VAO, VBO;
-
-	if (!glfwInit()) {
-		perror("init glfw");
-		return -1;
-	}
-
-	// glfw window hints
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-	GLFWwindow *window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT,
-					      "triangle", NULL, NULL);
-	if (window == NULL) {
-		fprintf(stderr, "Failed to create glfw window\n");
-		return -1;
-	}
-	glfwMakeContextCurrent(window);
-
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-		fprintf(stderr, "Failed to init glad");
-		glfwTerminate();
-		return -1;
-	}
-
-	glEnable(GL_DEBUG_OUTPUT);
-	glDebugMessageCallback(MessageCallback, NULL);
-
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-	glBindVertexArray(VAO);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-	float triangle[] = {
-	    -0.5f, -0.5f, 0.0f, ///
-	    0.0f,  0.5f,  0.0f, ///
-	    0.5f,  -0.5f, 0.0f, ///
-	};
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 9, triangle,
-		     GL_STATIC_DRAW);
-
+int load_and_use_shader(unsigned int programID, const char *vertexShaderPath,
+			const char *fragmentShaderPath) {
 	const char *vertexShaderCode = NULL;
 	const char *fragmentShaderCode = NULL;
-	unsigned int vertexShaderID, fragmentShaderID, programID;
+	unsigned int vertexShaderID, fragmentShaderID;
 	int shaderStatus = 0, programStatus = 0;
 	char *logBuffer = (char *)malloc(LOG_BUF_S_MAX);
 	int logBufferLen = 0;
 
-	if (read_file("shaders/basic/vertex.glsl", &vertexShaderCode) == 0) {
+	if (read_file(vertexShaderPath, &vertexShaderCode) == 0) {
 		fprintf(stderr, "Failed to read vertex shader");
 		return -1;
 	}
-	if (read_file("shaders/basic/fragment.glsl", &fragmentShaderCode) ==
-	    0) {
+	if (read_file(fragmentShaderPath, &fragmentShaderCode) == 0) {
 		fprintf(stderr, "Failed to read vertex shader");
 		return -1;
 	}
@@ -147,11 +105,11 @@ int main() {
 		return -1;
 	}
 
-	programID = glCreateProgram();
 	glAttachShader(programID, vertexShaderID);
 	glAttachShader(programID, fragmentShaderID);
 	glLinkProgram(programID);
 	glGetProgramiv(programID, GL_LINK_STATUS, &programStatus);
+
 	if (programStatus == GL_FALSE) {
 		glGetProgramInfoLog(programID, LOG_BUF_S_MAX, &logBufferLen,
 				    logBuffer);
@@ -170,6 +128,56 @@ int main() {
 	glDetachShader(programID, fragmentShaderID);
 	glDeleteShader(vertexShaderID);
 	glDeleteShader(fragmentShaderID);
+
+	return 0;
+}
+
+int main() {
+	unsigned int VAO, VBO;
+
+	if (!glfwInit()) {
+		perror("init glfw");
+		return -1;
+	}
+
+	// glfw window hints
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+	GLFWwindow *window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT,
+					      "triangle", NULL, NULL);
+	if (window == NULL) {
+		fprintf(stderr, "Failed to create glfw window\n");
+		return -1;
+	}
+	glfwMakeContextCurrent(window);
+
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+		fprintf(stderr, "Failed to init glad");
+		glfwTerminate();
+		return -1;
+	}
+
+	glEnable(GL_DEBUG_OUTPUT);
+	glDebugMessageCallback(MessageCallback, NULL);
+
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glBindVertexArray(VAO);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+	float triangle[] = {
+	    -0.5f, -0.5f, 0.0f, ///
+	    0.0f,  0.5f,  0.0f, ///
+	    0.5f,  -0.5f, 0.0f, ///
+	};
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 9, triangle,
+		     GL_STATIC_DRAW);
+
+	unsigned int programID = glCreateProgram();
+	load_and_use_shader(programID, "shaders/basic/vertex.glsl",
+			    "shaders/basic/fragment.glsl");
 	glUseProgram(programID);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
