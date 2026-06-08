@@ -25,14 +25,14 @@ endif()
 set(SOURCES src/main.cpp)
 
 # glfw config
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/libs/glfw-3.4)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/glfw-3.4)
 
 # load opengl for use with glad
 find_package(OpenGL REQUIRED)
 
 # glad config
-add_library(glad STATIC ${CMAKE_CURRENT_SOURCE_DIR}/libs/glad/src/glad.c)
-target_include_directories(glad PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/libs/glad/include)
+add_library(glad STATIC ${CMAKE_CURRENT_SOURCE_DIR}/lib/glad/src/glad.c)
+target_include_directories(glad PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lib/glad/include)
 target_link_libraries(glad PUBLIC OpenGL::GL)
 
 # compile binary
