@@ -1,15 +1,13 @@
-#include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/inotify.h>
-#include <unistd.h>
 
 #include <glad/glad.h>
-// link after glad
-#include <GLFW/glfw3.h>
 
-#include "file_reader.h"
+#include "shader.h"
+#include "shader_watcher.h"
+
+#include <GLFW/glfw3.h>
 
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 1024
@@ -21,149 +19,6 @@ void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id,
 		"GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
 		(type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""), type,
 		severity, message);
-}
-
-int load_and_use_shader(unsigned int programID, const char *vertexShaderPath,
-			const char *fragmentShaderPath) {
-	const char *vertexShaderCode = NULL;
-	const char *fragmentShaderCode = NULL;
-	unsigned int vertexShaderID, fragmentShaderID;
-	int shaderStatus = 0, programStatus = 0;
-	char *logBuffer = (char *)malloc(LOG_BUF_S_MAX);
-	int logBufferLen = 0;
-
-	if (read_file(vertexShaderPath, &vertexShaderCode) == 0) {
-		fprintf(stderr, "Failed to read vertex shader");
-		return -1;
-	}
-	if (read_file(fragmentShaderPath, &fragmentShaderCode) == 0) {
-		fprintf(stderr, "Failed to read vertex shader");
-		return -1;
-	}
-
-	vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShaderID, 1, &vertexShaderCode, NULL);
-	glCompileShader(vertexShaderID);
-	glGetShaderiv(vertexShaderID, GL_COMPILE_STATUS, &shaderStatus);
-	if (shaderStatus == GL_FALSE) {
-		char *logBuffer = (char *)malloc(LOG_BUF_S_MAX);
-		int logBufferLen = 0;
-		glGetShaderInfoLog(vertexShaderID, LOG_BUF_S_MAX, &logBufferLen,
-				   logBuffer);
-		if (logBufferLen == LOG_BUF_S_MAX) {
-			fprintf(stderr, "Failed to load output log: Log "
-					"buffer max size reached. The rest of "
-					"the log would be truncated\n");
-		} else {
-			logBuffer[logBufferLen] = '\0';
-		}
-		fprintf(stderr,
-			"**GL ERROR**\nVertex Shader Compilation Failed\n%s\n",
-			logBuffer);
-		return -1;
-	}
-
-	fragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShaderID, 1, &fragmentShaderCode, NULL);
-	glCompileShader(fragmentShaderID);
-	glGetShaderiv(fragmentShaderID, GL_COMPILE_STATUS, &shaderStatus);
-	if (shaderStatus == GL_FALSE) {
-		glGetShaderInfoLog(fragmentShaderID, LOG_BUF_S_MAX,
-				   &logBufferLen, logBuffer);
-		if (logBufferLen == LOG_BUF_S_MAX) {
-			fprintf(stderr, "Failed to load output log: Log "
-					"buffer max size reached. The rest of "
-					"the log would be truncated\n");
-		} else {
-			logBuffer[logBufferLen] = '\0';
-		}
-		fprintf(
-		    stderr,
-		    "**GL ERROR**\nFragment Shader Compilation Failed\n%s\n",
-		    logBuffer);
-		return -1;
-	}
-
-	glAttachShader(programID, vertexShaderID);
-	glAttachShader(programID, fragmentShaderID);
-	glLinkProgram(programID);
-	glGetProgramiv(programID, GL_LINK_STATUS, &programStatus);
-
-	if (programStatus == GL_FALSE) {
-		glGetProgramInfoLog(programID, LOG_BUF_S_MAX, &logBufferLen,
-				    logBuffer);
-		if (logBufferLen == LOG_BUF_S_MAX) {
-			fprintf(stderr, "Failed to load output log: Log "
-					"buffer max size reached. The rest of "
-					"the log would be truncated\n");
-		} else {
-			logBuffer[logBufferLen] = '\0';
-		}
-		fprintf(stdout, "**GL ERROR**\nProgram Link Failed\n%s\n",
-			logBuffer);
-		return -1;
-	}
-	glDetachShader(programID, vertexShaderID);
-	glDetachShader(programID, fragmentShaderID);
-	glDeleteShader(vertexShaderID);
-	glDeleteShader(fragmentShaderID);
-
-	return 0;
-}
-
-struct ShaderContext {
-	unsigned int programID;
-	const char *vertexShaderPath;
-	const char *fragmentShaderPath;
-};
-
-void *setup_shader_reload_watcher(void *args) {
-	if (args == NULL) {
-		fprintf(stderr, "Failed to setup shader watcher\n");
-		return NULL;
-	}
-	struct ShaderContext *shaderProg = (struct ShaderContext *)args;
-	int fd = inotify_init();
-	if (fd == -1) {
-		perror("inotify_init");
-		return (void *)-1;
-	}
-	int wd_vertex_shader =
-	    inotify_add_watch(fd, shaderProg->vertexShaderPath, IN_MODIFY);
-	int wd_fragment_shader =
-	    inotify_add_watch(fd, shaderProg->fragmentShaderPath, IN_MODIFY);
-	if (wd_vertex_shader == -1) {
-		perror("inotify_add_watch vertex");
-		return (void *)-1;
-	}
-	if (wd_fragment_shader == -1) {
-		perror("inotify_add_watch fragment");
-		return (void *)-1;
-	}
-	char buf[4096]
-	    __attribute__((aligned(__alignof__(struct inotify_event))));
-	ssize_t size;
-	fprintf(stdout, "Shader watcher shader on\n- %s\n- %s\n",
-		shaderProg->vertexShaderPath, shaderProg->fragmentShaderPath);
-	int status;
-	for (;;) {
-		size = read(fd, buf, sizeof(buf));
-		if (size == -1 && errno != EAGAIN) {
-			perror("read");
-			return (void *)-1;
-		}
-		// no errors but data not read
-		if (size <= 0) {
-			return 0;
-		}
-		// no error, reload shader
-		if ((status = load_and_use_shader(
-			 shaderProg->programID, shaderProg->vertexShaderPath,
-			 shaderProg->fragmentShaderPath)) != 0) {
-			fprintf(stderr, "Failed to load and use shaders\n");
-		}
-	}
-	return 0;
 }
 
 int main() {

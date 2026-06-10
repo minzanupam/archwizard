@@ -22,7 +22,12 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo" "ASan")
 endif()
 
-set(SOURCES src/main.cpp src/file_reader.cpp)
+set(SOURCES
+    src/main.cpp
+    src/file_reader.cpp
+    src/shader.cpp
+    src/shader_watcher.cpp
+)
 
 # glfw config
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/lib/glfw-3.4)
