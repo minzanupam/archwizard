@@ -1,8 +1,8 @@
 #include <cstdio>
 #include <cstdlib>
-#include <sys/inotify.h>
 #include <errno.h>
 #include <pthread.h>
+#include <sys/inotify.h>
 
 #include <glad/glad.h>
 // link after glad
@@ -82,7 +82,7 @@ int load_and_use_shader(unsigned int programID, const char *vertexShaderPath,
 		} else {
 			logBuffer[logBufferLen] = '\0';
 		}
-		fprintf(stdout,
+		fprintf(stderr,
 			"**GL ERROR**\nVertex Shader Compilation Failed\n%s\n",
 			logBuffer);
 		return -1;
@@ -103,7 +103,7 @@ int load_and_use_shader(unsigned int programID, const char *vertexShaderPath,
 			logBuffer[logBufferLen] = '\0';
 		}
 		fprintf(
-		    stdout,
+		    stderr,
 		    "**GL ERROR**\nFragment Shader Compilation Failed\n%s\n",
 		    logBuffer);
 		return -1;
@@ -136,44 +136,56 @@ int load_and_use_shader(unsigned int programID, const char *vertexShaderPath,
 	return 0;
 }
 
-int hot_reload_shader(unsigned int programID, const char *vertexShaderPath,
-		      const char *fragmentShaderPath) {
-	int status;
-	if ((status = load_and_use_shader(programID, vertexShaderPath,
-					  fragmentShaderPath)) != 0) {
-		fprintf(stderr, "Failed to load and use shaders\n");
-		return status;
-	}
-	return 0;
-}
+struct ShaderContext {
+	unsigned int programID;
+	const char *vertexShaderPath;
+	const char *fragmentShaderPath;
+};
 
-/** @return 0 = success, other = failure */
-int setup_shader_reload_watcher() {
+void *setup_shader_reload_watcher(void *args) {
+	if (args == NULL) {
+		fprintf(stderr, "Failed to setup shader watcher\n");
+		return NULL;
+	}
+	struct ShaderContext *shaderProg = (struct ShaderContext *)args;
 	int fd = inotify_init();
 	if (fd == -1) {
 		perror("inotify_init");
-		return -1;
+		return (void *)-1;
 	}
-	int wd =
-	    inotify_add_watch(fd, "src/shader/basic/vertex.glsl", IN_MODIFY);
-	if (wd == -1) {
-		perror("inotify_add_watch");
-		return -1;
+	int wd_vertex_shader =
+	    inotify_add_watch(fd, shaderProg->vertexShaderPath, IN_MODIFY);
+	int wd_fragment_shader =
+	    inotify_add_watch(fd, shaderProg->fragmentShaderPath, IN_MODIFY);
+	if (wd_vertex_shader == -1) {
+		perror("inotify_add_watch vertex");
+		return (void *)-1;
+	}
+	if (wd_fragment_shader == -1) {
+		perror("inotify_add_watch fragment");
+		return (void *)-1;
 	}
 	char buf[4096]
 	    __attribute__((aligned(__alignof__(struct inotify_event))));
-	// const struct inotify_event *event;
 	ssize_t size;
+	fprintf(stdout, "Shader watcher shader on\n- %s\n- %s\n",
+		shaderProg->vertexShaderPath, shaderProg->fragmentShaderPath);
+	int status;
 	for (;;) {
 		size = read(fd, buf, sizeof(buf));
 		if (size == -1 && errno != EAGAIN) {
 			perror("read");
-			return -1;
+			return (void *)-1;
 		}
-
 		// no errors but data not read
 		if (size <= 0) {
-			break;
+			return 0;
+		}
+		// no error, reload shader
+		if ((status = load_and_use_shader(
+			 shaderProg->programID, shaderProg->vertexShaderPath,
+			 shaderProg->fragmentShaderPath)) != 0) {
+			fprintf(stderr, "Failed to load and use shaders\n");
 		}
 	}
 	return 0;
@@ -181,6 +193,7 @@ int setup_shader_reload_watcher() {
 
 int main() {
 	unsigned int VAO, VBO;
+	pthread_t thread_shader_watcher;
 
 	if (!glfwInit()) {
 		perror("init glfw");
@@ -224,23 +237,28 @@ int main() {
 
 	unsigned int programID = glCreateProgram();
 	int status;
+
+	struct ShaderContext shaderProg = {
+	    .programID = programID,
+	    .vertexShaderPath = "shaders/basic/vertex.glsl",
+	    .fragmentShaderPath = "shaders/basic/fragment.glsl",
+	};
+
 	if ((status =
-		 load_and_use_shader(programID, "shaders/basic/vertex.glsl",
-				     "shaders/basic/fragment.glsl")) != 0) {
+		 load_and_use_shader(programID, shaderProg.vertexShaderPath,
+				     shaderProg.fragmentShaderPath)) != 0) {
 		fprintf(stderr, "Failed to load and use shaders\n");
 		return status;
 	}
 	glUseProgram(programID);
 
-	if ((status = hot_reload_shader(programID, "shaders/basic/vertex.glsl",
-					"shaders/basic/fragment.glsl")) != 0) {
-		fprintf(stderr, "Failed to load and use shaders\n");
-		return status;
-	}
-
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
 			      (void *)0);
 	glEnableVertexAttribArray(0);
+
+	pthread_create(&thread_shader_watcher, NULL,
+		       setup_shader_reload_watcher, (void *)&shaderProg);
+	pthread_detach(thread_shader_watcher);
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -251,6 +269,9 @@ int main() {
 
 		glfwSwapBuffers(window);
 	}
+
+	pthread_cancel(thread_shader_watcher);
+
 	glfwDestroyWindow(window);
 	glfwTerminate();
 
