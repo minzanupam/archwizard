@@ -1,18 +1,18 @@
-#include <cstdio>
-#include <cstdlib>
 #include <errno.h>
 #include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/inotify.h>
+#include <unistd.h>
 
 #include <glad/glad.h>
 // link after glad
 #include <GLFW/glfw3.h>
-#include <unistd.h>
+
+#include "file_reader.h"
 
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 1024
-#define LOG_BUF_S_MAX 1 << 13 // 8 KB
-#define FILE_RD_S_MAX 1 << 22 // 4 MB
 
 void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id,
 				GLenum severity, GLsizei length,
@@ -21,31 +21,6 @@ void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id,
 		"GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
 		(type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""), type,
 		severity, message);
-}
-
-size_t read_file(const char *path, const char **output) {
-	FILE *f = fopen(path, "r");
-	if (f == NULL) {
-		fprintf(stderr, "Failed to read file: File not found: %s",
-			path);
-		return 0;
-	}
-	fseek(f, 0, SEEK_END);
-	size_t file_s = ftell(f);
-	if (file_s + 1 > FILE_RD_S_MAX) {
-		fprintf(stderr,
-			"Failed to read file: Max file size allowed exceeded: "
-			"Max File size %d, file path: %s",
-			FILE_RD_S_MAX, path);
-		return 0;
-	}
-	char *buf = (char *)malloc(file_s + 1);
-	fseek(f, 0, SEEK_SET);
-	size_t bytes_read = fread(buf, file_s, 1, f);
-	fclose(f);
-	buf[file_s] = '\0';
-	*output = buf;
-	return bytes_read;
 }
 
 int load_and_use_shader(unsigned int programID, const char *vertexShaderPath,
