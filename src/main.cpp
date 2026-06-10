@@ -1,9 +1,13 @@
 #include <cstdio>
 #include <cstdlib>
+#include <sys/inotify.h>
+#include <errno.h>
+#include <pthread.h>
 
 #include <glad/glad.h>
 // link after glad
 #include <GLFW/glfw3.h>
+#include <unistd.h>
 
 #define SCREEN_WIDTH 1024
 #define SCREEN_HEIGHT 1024
@@ -139,6 +143,38 @@ int hot_reload_shader(unsigned int programID, const char *vertexShaderPath,
 					  fragmentShaderPath)) != 0) {
 		fprintf(stderr, "Failed to load and use shaders\n");
 		return status;
+	}
+	return 0;
+}
+
+/** @return 0 = success, other = failure */
+int setup_shader_reload_watcher() {
+	int fd = inotify_init();
+	if (fd == -1) {
+		perror("inotify_init");
+		return -1;
+	}
+	int wd =
+	    inotify_add_watch(fd, "src/shader/basic/vertex.glsl", IN_MODIFY);
+	if (wd == -1) {
+		perror("inotify_add_watch");
+		return -1;
+	}
+	char buf[4096]
+	    __attribute__((aligned(__alignof__(struct inotify_event))));
+	// const struct inotify_event *event;
+	ssize_t size;
+	for (;;) {
+		size = read(fd, buf, sizeof(buf));
+		if (size == -1 && errno != EAGAIN) {
+			perror("read");
+			return -1;
+		}
+
+		// no errors but data not read
+		if (size <= 0) {
+			break;
+		}
 	}
 	return 0;
 }
