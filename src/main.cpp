@@ -132,6 +132,17 @@ int load_and_use_shader(unsigned int programID, const char *vertexShaderPath,
 	return 0;
 }
 
+int hot_reload_shader(unsigned int programID, const char *vertexShaderPath,
+		      const char *fragmentShaderPath) {
+	int status;
+	if ((status = load_and_use_shader(programID, vertexShaderPath,
+					  fragmentShaderPath)) != 0) {
+		fprintf(stderr, "Failed to load and use shaders\n");
+		return status;
+	}
+	return 0;
+}
+
 int main() {
 	unsigned int VAO, VBO;
 
@@ -176,9 +187,20 @@ int main() {
 		     GL_STATIC_DRAW);
 
 	unsigned int programID = glCreateProgram();
-	load_and_use_shader(programID, "shaders/basic/vertex.glsl",
-			    "shaders/basic/fragment.glsl");
+	int status;
+	if ((status =
+		 load_and_use_shader(programID, "shaders/basic/vertex.glsl",
+				     "shaders/basic/fragment.glsl")) != 0) {
+		fprintf(stderr, "Failed to load and use shaders\n");
+		return status;
+	}
 	glUseProgram(programID);
+
+	if ((status = hot_reload_shader(programID, "shaders/basic/vertex.glsl",
+					"shaders/basic/fragment.glsl")) != 0) {
+		fprintf(stderr, "Failed to load and use shaders\n");
+		return status;
+	}
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
 			      (void *)0);
