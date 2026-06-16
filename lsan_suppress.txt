@@ -1,0 +1,17 @@
+leak:libfontconfig
+leak:libpango
+leak:libdecor
+leak:libLLVM
+
+# Wayland viewporter
+leak:wp_viewporter_get_viewport
+
+# Wayland fractional scaling
+leak:wp_fractional_scale_manager_v1_get_fractional_scale
+
+# Wayland proxy objects
+leak:proxy_create
+leak:wl_proxy_marshal_flags
+
+# EGL initialization
+leak:_glfwInitEGL

@@ -91,5 +91,9 @@ int load_and_use_shader(unsigned int programID, const char *vertexShaderPath,
 	glDeleteShader(vertexShaderID);
 	glDeleteShader(fragmentShaderID);
 
+	free(logBuffer);
+	free((void *)vertexShaderCode);
+	free((void *)fragmentShaderCode);
+
 	return 0;
 }
