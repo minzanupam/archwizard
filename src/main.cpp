@@ -68,18 +68,19 @@ int main() {
 	unsigned int programID = glCreateProgram();
 	int status;
 
-	struct ShaderContext shaderProg = {
+	struct ShaderContext context = {
 	    .programID = programID,
+	    .window = window,
 	    .vertexShaderPath = "shaders/basic/vertex.glsl",
 	    .fragmentShaderPath = "shaders/basic/fragment.glsl",
 	};
 
-	if ((status =
-		 load_and_use_shader(programID, shaderProg.vertexShaderPath,
-				     shaderProg.fragmentShaderPath)) != 0) {
+	if ((status = load_shaders(&context)) != 0) {
 		fprintf(stderr, "Failed to load and use shaders\n");
 		return status;
 	}
+	glfwMakeContextCurrent(window);
+
 	glUseProgram(programID);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
@@ -87,7 +88,7 @@ int main() {
 	glEnableVertexAttribArray(0);
 
 	pthread_create(&thread_shader_watcher, NULL,
-		       setup_shader_reload_watcher, (void *)&shaderProg);
+		       setup_shader_reload_watcher, (void *)&context);
 	pthread_detach(thread_shader_watcher);
 
 	while (!glfwWindowShouldClose(window)) {

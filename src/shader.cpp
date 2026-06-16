@@ -4,6 +4,8 @@
 
 #include <glad/glad.h>
 
+#include "GLFW/glfw3.h"
+
 #include "file_reader.h"
 #include "shader.h"
 
@@ -20,30 +22,12 @@ void *read_file_parallel(void *args) {
 	return (void *)ret;
 }
 
-int load_and_use_shader(unsigned int programID, const char *vertexShaderPath,
-			const char *fragmentShaderPath) {
-	const char *vertexShaderCode = NULL;
-	const char *fragmentShaderCode = NULL;
+int compileShaders(unsigned int programID, const char *vertexShaderCode,
+		   const char *fragmentShaderCode) {
 	unsigned int vertexShaderID, fragmentShaderID;
 	int shaderStatus = 0, programStatus = 0;
 	char *logBuffer = (char *)malloc(LOG_BUF_S_MAX);
 	int logBufferLen = 0;
-
-	struct FileReadArgs vertexShaderArgs = {
-	    .path = vertexShaderPath,
-	    .output = &vertexShaderCode,
-	};
-	struct FileReadArgs fragmentShaderArgs = {
-	    .path = fragmentShaderPath,
-	    .output = &fragmentShaderCode,
-	};
-	pthread_t t1, t2;
-	pthread_create(&t1, NULL, read_file_parallel, (void *)&vertexShaderArgs);
-	pthread_create(&t2, NULL, read_file_parallel, (void *)&fragmentShaderArgs);
-
-	ssize_t vertexShaderFileReadStatus, fragmentShaderFileReadStatus;
-	pthread_join(t1, (void **)&vertexShaderFileReadStatus);
-	pthread_join(t2, (void **)&fragmentShaderFileReadStatus);
 
 	vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertexShaderID, 1, &vertexShaderCode, NULL);
@@ -113,6 +97,37 @@ int load_and_use_shader(unsigned int programID, const char *vertexShaderPath,
 	glDeleteShader(fragmentShaderID);
 
 	free(logBuffer);
+
+	return 0;
+}
+
+int load_shaders(struct ShaderContext *context) {
+	unsigned int programID = context->programID;
+	const char *vertexShaderCode = NULL;
+	const char *fragmentShaderCode = NULL;
+
+	struct FileReadArgs vertexShaderArgs = {
+	    .path = context->vertexShaderPath,
+	    .output = &vertexShaderCode,
+	};
+	struct FileReadArgs fragmentShaderArgs = {
+	    .path = context->fragmentShaderPath,
+	    .output = &fragmentShaderCode,
+	};
+	pthread_t t1, t2;
+	pthread_create(&t1, NULL, read_file_parallel,
+		       (void *)&vertexShaderArgs);
+	pthread_create(&t2, NULL, read_file_parallel,
+		       (void *)&fragmentShaderArgs);
+
+	ssize_t vertexShaderFileReadStatus, fragmentShaderFileReadStatus;
+	pthread_join(t1, (void **)&vertexShaderFileReadStatus);
+	pthread_join(t2, (void **)&fragmentShaderFileReadStatus);
+
+	glfwMakeContextCurrent(context->window);
+	compileShaders(programID, vertexShaderCode, fragmentShaderCode);
+	glfwMakeContextCurrent(NULL);
+
 	free((void *)vertexShaderCode);
 	free((void *)fragmentShaderCode);
 

@@ -12,16 +12,16 @@ void *setup_shader_reload_watcher(void *args) {
 		fprintf(stderr, "Failed to setup shader watcher\n");
 		return NULL;
 	}
-	struct ShaderContext *shaderProg = (struct ShaderContext *)args;
+	struct ShaderContext *context = (struct ShaderContext *)args;
 	int fd = inotify_init();
 	if (fd == -1) {
 		perror("inotify_init");
 		return (void *)-1;
 	}
 	int wd_vertex_shader =
-	    inotify_add_watch(fd, shaderProg->vertexShaderPath, IN_MODIFY);
+	    inotify_add_watch(fd, context->vertexShaderPath, IN_MODIFY);
 	int wd_fragment_shader =
-	    inotify_add_watch(fd, shaderProg->fragmentShaderPath, IN_MODIFY);
+	    inotify_add_watch(fd, context->fragmentShaderPath, IN_MODIFY);
 	if (wd_vertex_shader == -1) {
 		perror("inotify_add_watch vertex");
 		return (void *)-1;
@@ -34,7 +34,7 @@ void *setup_shader_reload_watcher(void *args) {
 	    __attribute__((aligned(__alignof__(struct inotify_event))));
 	ssize_t size;
 	fprintf(stdout, "Shader watcher shader on\n- %s\n- %s\n",
-		shaderProg->vertexShaderPath, shaderProg->fragmentShaderPath);
+		context->vertexShaderPath, context->fragmentShaderPath);
 	int status;
 	for (;;) {
 		size = read(fd, buf, sizeof(buf));
@@ -47,9 +47,7 @@ void *setup_shader_reload_watcher(void *args) {
 			return 0;
 		}
 		// no error, reload shader
-		if ((status = load_and_use_shader(
-			 shaderProg->programID, shaderProg->vertexShaderPath,
-			 shaderProg->fragmentShaderPath)) != 0) {
+		if ((status = load_shaders(context)) != 0) {
 			fprintf(stderr, "Failed to load and use shaders\n");
 		}
 	}
