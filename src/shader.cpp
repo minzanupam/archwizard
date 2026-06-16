@@ -1,3 +1,4 @@
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -5,6 +6,19 @@
 
 #include "file_reader.h"
 #include "shader.h"
+
+struct FileReadArgs {
+	const char *path;
+	const char **output;
+};
+
+void *read_file_parallel(void *args) {
+	struct FileReadArgs *argsData = (FileReadArgs *)args;
+	const char *vertexShaderPath = argsData->path;
+	const char **vertexShaderCode = argsData->output;
+	ssize_t ret = read_file(vertexShaderPath, vertexShaderCode);
+	return (void *)ret;
+}
 
 int load_and_use_shader(unsigned int programID, const char *vertexShaderPath,
 			const char *fragmentShaderPath) {
@@ -15,14 +29,21 @@ int load_and_use_shader(unsigned int programID, const char *vertexShaderPath,
 	char *logBuffer = (char *)malloc(LOG_BUF_S_MAX);
 	int logBufferLen = 0;
 
-	if (read_file(vertexShaderPath, &vertexShaderCode) == 0) {
-		fprintf(stderr, "Failed to read vertex shader");
-		return -1;
-	}
-	if (read_file(fragmentShaderPath, &fragmentShaderCode) == 0) {
-		fprintf(stderr, "Failed to read vertex shader");
-		return -1;
-	}
+	struct FileReadArgs vertexShaderArgs = {
+	    .path = vertexShaderPath,
+	    .output = &vertexShaderCode,
+	};
+	struct FileReadArgs fragmentShaderArgs = {
+	    .path = fragmentShaderPath,
+	    .output = &fragmentShaderCode,
+	};
+	pthread_t t1, t2;
+	pthread_create(&t1, NULL, read_file_parallel, (void *)&vertexShaderArgs);
+	pthread_create(&t2, NULL, read_file_parallel, (void *)&fragmentShaderArgs);
+
+	ssize_t vertexShaderFileReadStatus, fragmentShaderFileReadStatus;
+	pthread_join(t1, (void **)&vertexShaderFileReadStatus);
+	pthread_join(t2, (void **)&fragmentShaderFileReadStatus);
 
 	vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertexShaderID, 1, &vertexShaderCode, NULL);
