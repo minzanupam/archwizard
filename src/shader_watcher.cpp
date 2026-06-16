@@ -4,6 +4,7 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 
+#include "GLFW/glfw3.h"
 #include "shader.h"
 #include "shader_watcher.h"
 
@@ -47,9 +48,13 @@ void *setup_shader_reload_watcher(void *args) {
 			return 0;
 		}
 		// no error, reload shader
+		// pthread_mutex_lock(context->shaderContextMutex);
+		glfwMakeContextCurrent(context->window);
 		if ((status = load_shaders(context)) != 0) {
 			fprintf(stderr, "Failed to load and use shaders\n");
 		}
+		glfwMakeContextCurrent(NULL);
+		// pthread_mutex_unlock(context->shaderContextMutex);
 	}
 	return 0;
 }

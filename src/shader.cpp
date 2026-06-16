@@ -1,3 +1,4 @@
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,6 +31,10 @@ int compileShaders(unsigned int programID, const char *vertexShaderCode,
 	int logBufferLen = 0;
 
 	vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
+	if (vertexShaderID == 0) {
+		fprintf(stderr, "Failed to create vertex shader\n");
+		return -1;
+	}
 	glShaderSource(vertexShaderID, 1, &vertexShaderCode, NULL);
 	glCompileShader(vertexShaderID);
 	glGetShaderiv(vertexShaderID, GL_COMPILE_STATUS, &shaderStatus);
@@ -52,6 +57,10 @@ int compileShaders(unsigned int programID, const char *vertexShaderCode,
 	}
 
 	fragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
+	if (fragmentShaderID == 0) {
+		fprintf(stderr, "Failed to create fragment shader\n");
+		return -1;
+	}
 	glShaderSource(fragmentShaderID, 1, &fragmentShaderCode, NULL);
 	glCompileShader(fragmentShaderID);
 	glGetShaderiv(fragmentShaderID, GL_COMPILE_STATUS, &shaderStatus);
@@ -124,9 +133,10 @@ int load_shaders(struct ShaderContext *context) {
 	pthread_join(t1, (void **)&vertexShaderFileReadStatus);
 	pthread_join(t2, (void **)&fragmentShaderFileReadStatus);
 
-	glfwMakeContextCurrent(context->window);
-	compileShaders(programID, vertexShaderCode, fragmentShaderCode);
-	glfwMakeContextCurrent(NULL);
+	if (compileShaders(programID, vertexShaderCode, fragmentShaderCode) !=
+	    0) {
+		fprintf(stderr, "Failed to complie shader\n");
+	}
 
 	free((void *)vertexShaderCode);
 	free((void *)fragmentShaderCode);

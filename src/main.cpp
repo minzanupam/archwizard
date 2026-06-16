@@ -23,7 +23,8 @@ void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id,
 
 int main() {
 	unsigned int VAO, VBO;
-	pthread_t thread_shader_watcher;
+	pthread_t shader_reload_thread;
+	pthread_mutex_t shader_context_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 	if (!glfwInit()) {
 		perror("init glfw");
@@ -71,6 +72,7 @@ int main() {
 	struct ShaderContext context = {
 	    .programID = programID,
 	    .window = window,
+	    .shaderContextMutex = &shader_context_mutex,
 	    .vertexShaderPath = "shaders/basic/vertex.glsl",
 	    .fragmentShaderPath = "shaders/basic/fragment.glsl",
 	};
@@ -86,12 +88,16 @@ int main() {
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
 			      (void *)0);
 	glEnableVertexAttribArray(0);
+	glfwMakeContextCurrent(NULL);
 
-	pthread_create(&thread_shader_watcher, NULL,
-		       setup_shader_reload_watcher, (void *)&context);
-	pthread_detach(thread_shader_watcher);
+	pthread_create(&shader_reload_thread, NULL, setup_shader_reload_watcher,
+		       (void *)&context);
+	pthread_detach(shader_reload_thread);
 
 	while (!glfwWindowShouldClose(window)) {
+		// pthread_mutex_lock(&shader_context_mutex);
+		glfwMakeContextCurrent(window);
+
 		glfwPollEvents();
 		glClear(GL_COLOR_BUFFER_BIT);
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -99,9 +105,11 @@ int main() {
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		glfwSwapBuffers(window);
+		glfwMakeContextCurrent(NULL);
+		// pthread_mutex_unlock(&shader_context_mutex);
 	}
 
-	pthread_cancel(thread_shader_watcher);
+	pthread_cancel(shader_reload_thread);
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
