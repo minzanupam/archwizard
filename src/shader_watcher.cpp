@@ -8,6 +8,53 @@
 #include "shader.h"
 #include "shader_watcher.h"
 
+void *process_buffer_event(char *buf, ssize_t size, int fd,
+			   int *wd_vertex_shader, int *wd_fragment_shader,
+			   struct ShaderContext *context) {
+	for (char *ptr = buf; ptr < buf + size;) {
+		struct inotify_event *event = (struct inotify_event *)ptr;
+
+		if (event->wd == *wd_vertex_shader) {
+			printf("Vertex shader changed! Reloading...\n");
+			// Call your shader reload function here
+		} else if (event->wd == *wd_fragment_shader) {
+			printf("Fragment shader changed! Reloading...\n");
+			// Call your shader reload function here
+		}
+
+		if (event->mask & IN_IGNORED) {
+			printf("Watch was REMOVED by the kernel "
+			       "(IN_IGNORED). Your editor killed the "
+			       "watch!\n");
+			*wd_vertex_shader = inotify_add_watch(
+			    fd, context->vertexShaderPath, IN_MODIFY);
+			*wd_fragment_shader = inotify_add_watch(
+			    fd, context->fragmentShaderPath, IN_MODIFY);
+			if (*wd_vertex_shader == -1) {
+				perror("inotify_add_watch vertex");
+				return (void *)-1;
+			}
+			if (*wd_fragment_shader == -1) {
+				perror("inotify_add_watch fragment");
+				return (void *)-1;
+			}
+			printf("Watcher readded\n");
+		}
+		if (event->mask & IN_DELETE_SELF) {
+			printf("The file was deleted/replaced "
+			       "(IN_DELETE_SELF).\n");
+		}
+		if (event->mask & IN_MOVE_SELF) {
+			printf("The file was moved/renamed "
+			       "(IN_MOVE_SELF).\n");
+		}
+
+		// Move to the next event in the buffer
+		ptr += sizeof(struct inotify_event) + event->len;
+	}
+	return NULL;
+}
+
 void *setup_shader_reload_watcher(void *args) {
 	if (args == NULL) {
 		fprintf(stderr, "Failed to setup shader watcher\n");
@@ -72,48 +119,14 @@ void *setup_shader_reload_watcher(void *args) {
 		pthread_join(t2, (void **)&fragmentShaderFileReadStatus);
 
 		// Process all events pulled into the buffer
-		for (char *ptr = buf; ptr < buf + size;) {
-			struct inotify_event *event =
-			    (struct inotify_event *)ptr;
-
-			if (event->wd == wd_vertex_shader) {
-				printf("Vertex shader changed! Reloading...\n");
-				// Call your shader reload function here
-			} else if (event->wd == wd_fragment_shader) {
-				printf(
-				    "Fragment shader changed! Reloading...\n");
-				// Call your shader reload function here
-			}
-
-			if (event->mask & IN_IGNORED) {
-				printf("Watch was REMOVED by the kernel "
-				       "(IN_IGNORED). Your editor killed the "
-				       "watch!\n");
-				wd_vertex_shader = inotify_add_watch(
-				    fd, context->vertexShaderPath, IN_MODIFY);
-				wd_fragment_shader = inotify_add_watch(
-				    fd, context->fragmentShaderPath, IN_MODIFY);
-				if (wd_vertex_shader == -1) {
-					perror("inotify_add_watch vertex");
-					return (void *)-1;
-				}
-				if (wd_fragment_shader == -1) {
-					perror("inotify_add_watch fragment");
-					return (void *)-1;
-				}
-				printf("Watcher readded\n");
-			}
-			if (event->mask & IN_DELETE_SELF) {
-				printf("The file was deleted/replaced "
-				       "(IN_DELETE_SELF).\n");
-			}
-			if (event->mask & IN_MOVE_SELF) {
-				printf("The file was moved/renamed "
-				       "(IN_MOVE_SELF).\n");
-			}
-
-			// Move to the next event in the buffer
-			ptr += sizeof(struct inotify_event) + event->len;
+		void *ret =
+		    process_buffer_event(buf, size, fd, &wd_vertex_shader,
+					 &wd_fragment_shader, context);
+		if (ret != NULL) {
+			fprintf(
+			    stderr,
+			    "File watcher: Buffer event processing failed\n");
+			return ret;
 		}
 
 		// no error, set recompile shader flag to true
