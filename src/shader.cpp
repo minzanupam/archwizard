@@ -129,28 +129,24 @@ int read_shaders(struct ShaderContext *context) {
 	return 0;
 }
 
-void recompile_shader(struct ShaderContext *context) {
+int recompile_shader(struct ShaderContext *context) {
 	int status;
 	if ((status = read_shaders(context)) != 0) {
 		fprintf(stderr, "Failed to read shader\n");
-		context->recompileShaderFlag = 0;
-		return;
+		return -1;
 	}
 	if (context->vertexShaderCode == NULL) {
 		fprintf(stderr, "Vertex shader code not loaded\n");
-		context->recompileShaderFlag = 0;
-		return;
+		return -1;
 	}
 	if (context->fragmentShaderCode == NULL) {
 		fprintf(stderr, "Fragment shader code not loaded\n");
-		context->recompileShaderFlag = 0;
-		return;
+		return -1;
 	}
 	if ((status = compile_shaders(context->programID,
 				      context->fragmentShaderCode,
 				      context->vertexShaderCode)) != 0) {
 		fprintf(stderr, "Failed to compile shader\n");
-		context->recompileShaderFlag = 0;
-		return;
+		return -1;
 	}
 }

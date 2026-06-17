@@ -69,7 +69,7 @@ int main() {
 	unsigned int programID = glCreateProgram();
 	int status;
 
-	std::atomic_bool recompile_shader_flag;
+	std::atomic_bool recompile_shader_flag(0);
 
 	struct ShaderContext context = {
 	    .programID = programID,
@@ -102,7 +102,9 @@ int main() {
 		glfwMakeContextCurrent(window);
 		// hot reload shader
 		if (recompile_shader_flag) {
-			recompile_shader(&context);
+			if ((status = recompile_shader(&context)) != 0) {
+				fprintf(stderr, "Failed to recompile shader\n");
+			}
 			recompile_shader_flag = 0;
 		}
 
