@@ -1,3 +1,4 @@
+#include <atomic>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,7 +25,6 @@ void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id,
 int main() {
 	unsigned int VAO, VBO;
 	pthread_t shader_reload_thread;
-	pthread_mutex_t shader_context_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 	if (!glfwInit()) {
 		perror("init glfw");
@@ -69,34 +69,65 @@ int main() {
 	unsigned int programID = glCreateProgram();
 	int status;
 
+	std::atomic_bool recompile_shader_flag;
+
 	struct ShaderContext context = {
 	    .programID = programID,
 	    .window = window,
-	    .shaderContextMutex = &shader_context_mutex,
+	    .recompileShaderFlag = &recompile_shader_flag,
 	    .vertexShaderPath = "shaders/basic/vertex.glsl",
 	    .fragmentShaderPath = "shaders/basic/fragment.glsl",
+	    .vertexShaderCode = NULL,
+	    .fragmentShaderCode = NULL,
 	};
 
-	if ((status = load_shaders(&context)) != 0) {
+	if ((status = read_shaders(&context)) != 0) {
 		fprintf(stderr, "Failed to load and use shaders\n");
 		return status;
 	}
-	glfwMakeContextCurrent(window);
+	compile_shaders(programID, context.vertexShaderCode,
+			context.fragmentShaderCode);
 
 	glUseProgram(programID);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
 			      (void *)0);
 	glEnableVertexAttribArray(0);
-	glfwMakeContextCurrent(NULL);
 
 	pthread_create(&shader_reload_thread, NULL, setup_shader_reload_watcher,
 		       (void *)&context);
 	pthread_detach(shader_reload_thread);
 
 	while (!glfwWindowShouldClose(window)) {
-		// pthread_mutex_lock(&shader_context_mutex);
 		glfwMakeContextCurrent(window);
+		// hot reload shader
+		if (recompile_shader_flag) {
+			if ((status = read_shaders(&context)) != 0) {
+				fprintf(stderr, "Failed to read shader\n");
+				recompile_shader_flag = 0;
+				continue;
+			}
+			if (context.vertexShaderCode == NULL) {
+				fprintf(stderr,
+					"Vertex shader code not loaded\n");
+				recompile_shader_flag = 0;
+				continue;
+			}
+			if (context.fragmentShaderCode == NULL) {
+				fprintf(stderr,
+					"Fragment shader code not loaded\n");
+				recompile_shader_flag = 0;
+				continue;
+			}
+			if ((status = compile_shaders(
+				 programID, context.fragmentShaderCode,
+				 context.vertexShaderCode)) != 0) {
+				fprintf(stderr, "Failed to compile shader\n");
+				recompile_shader_flag = 0;
+				continue;
+			}
+			recompile_shader_flag = 0;
+		}
 
 		glfwPollEvents();
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -106,7 +137,6 @@ int main() {
 
 		glfwSwapBuffers(window);
 		glfwMakeContextCurrent(NULL);
-		// pthread_mutex_unlock(&shader_context_mutex);
 	}
 
 	pthread_cancel(shader_reload_thread);

@@ -27,3 +27,11 @@ size_t read_file(const char *path, const char **output) {
 	*output = buf;
 	return bytes_read;
 }
+
+void *read_file_parallel(void *args) {
+	struct FileReadArgs *argsData = (FileReadArgs *)args;
+	const char *vertexShaderPath = argsData->path;
+	const char **vertexShaderCode = argsData->output;
+	ssize_t ret = read_file(vertexShaderPath, vertexShaderCode);
+	return (void *)ret;
+}

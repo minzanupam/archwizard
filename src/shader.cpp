@@ -5,25 +5,10 @@
 
 #include <glad/glad.h>
 
-#include "GLFW/glfw3.h"
-
 #include "file_reader.h"
 #include "shader.h"
 
-struct FileReadArgs {
-	const char *path;
-	const char **output;
-};
-
-void *read_file_parallel(void *args) {
-	struct FileReadArgs *argsData = (FileReadArgs *)args;
-	const char *vertexShaderPath = argsData->path;
-	const char **vertexShaderCode = argsData->output;
-	ssize_t ret = read_file(vertexShaderPath, vertexShaderCode);
-	return (void *)ret;
-}
-
-int compileShaders(unsigned int programID, const char *vertexShaderCode,
+int compile_shaders(unsigned int programID, const char *vertexShaderCode,
 		   const char *fragmentShaderCode) {
 	unsigned int vertexShaderID, fragmentShaderID;
 	int shaderStatus = 0, programStatus = 0;
@@ -110,7 +95,7 @@ int compileShaders(unsigned int programID, const char *vertexShaderCode,
 	return 0;
 }
 
-int load_shaders(struct ShaderContext *context) {
+int read_shaders(struct ShaderContext *context) {
 	unsigned int programID = context->programID;
 	const char *vertexShaderCode = NULL;
 	const char *fragmentShaderCode = NULL;
@@ -133,7 +118,7 @@ int load_shaders(struct ShaderContext *context) {
 	pthread_join(t1, (void **)&vertexShaderFileReadStatus);
 	pthread_join(t2, (void **)&fragmentShaderFileReadStatus);
 
-	if (compileShaders(programID, vertexShaderCode, fragmentShaderCode) !=
+	if (compile_shaders(programID, vertexShaderCode, fragmentShaderCode) !=
 	    0) {
 		fprintf(stderr, "Failed to complie shader\n");
 	}

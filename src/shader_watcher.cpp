@@ -4,7 +4,7 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 
-#include "GLFW/glfw3.h"
+#include "file_reader.h"
 #include "shader.h"
 #include "shader_watcher.h"
 
@@ -36,8 +36,8 @@ void *setup_shader_reload_watcher(void *args) {
 	ssize_t size;
 	fprintf(stdout, "Shader watcher shader on\n- %s\n- %s\n",
 		context->vertexShaderPath, context->fragmentShaderPath);
-	int status;
 	for (;;) {
+		// should wait util shader referesh
 		size = read(fd, buf, sizeof(buf));
 		if (size == -1 && errno != EAGAIN) {
 			perror("read");
@@ -47,14 +47,32 @@ void *setup_shader_reload_watcher(void *args) {
 		if (size <= 0) {
 			return 0;
 		}
-		// no error, reload shader
-		// pthread_mutex_lock(context->shaderContextMutex);
-		glfwMakeContextCurrent(context->window);
-		if ((status = load_shaders(context)) != 0) {
-			fprintf(stderr, "Failed to load and use shaders\n");
-		}
-		glfwMakeContextCurrent(NULL);
-		// pthread_mutex_unlock(context->shaderContextMutex);
+
+		// read shader files
+		const char *vertexShaderCode = NULL;
+		const char *fragmentShaderCode = NULL;
+
+		struct FileReadArgs vertexShaderArgs = {
+		    .path = context->vertexShaderPath,
+		    .output = &vertexShaderCode,
+		};
+		struct FileReadArgs fragmentShaderArgs = {
+		    .path = context->fragmentShaderPath,
+		    .output = &fragmentShaderCode,
+		};
+		pthread_t t1, t2;
+		pthread_create(&t1, NULL, read_file_parallel,
+			       (void *)&vertexShaderArgs);
+		pthread_create(&t2, NULL, read_file_parallel,
+			       (void *)&fragmentShaderArgs);
+
+		ssize_t vertexShaderFileReadStatus,
+		    fragmentShaderFileReadStatus;
+		pthread_join(t1, (void **)&vertexShaderFileReadStatus);
+		pthread_join(t2, (void **)&fragmentShaderFileReadStatus);
+
+		// no error, set recompile shader flag to true
+		*context->recompileShaderFlag = 1;
 	}
 	return 0;
 }
