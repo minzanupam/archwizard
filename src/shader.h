@@ -28,3 +28,5 @@ int read_shaders(struct ShaderContext *context);
 
 int compile_shaders(unsigned int programID, const char *vertexShaderCode,
 		    const char *fragmentShaderCode);
+
+void recompile_shader(struct ShaderContext *context);

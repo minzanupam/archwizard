@@ -9,7 +9,7 @@
 #include "shader.h"
 
 int compile_shaders(unsigned int programID, const char *vertexShaderCode,
-		   const char *fragmentShaderCode) {
+		    const char *fragmentShaderCode) {
 	unsigned int vertexShaderID, fragmentShaderID;
 	int shaderStatus = 0, programStatus = 0;
 	char *logBuffer = (char *)malloc(LOG_BUF_S_MAX);
@@ -127,4 +127,30 @@ int read_shaders(struct ShaderContext *context) {
 	free((void *)fragmentShaderCode);
 
 	return 0;
+}
+
+void recompile_shader(struct ShaderContext *context) {
+	int status;
+	if ((status = read_shaders(context)) != 0) {
+		fprintf(stderr, "Failed to read shader\n");
+		context->recompileShaderFlag = 0;
+		return;
+	}
+	if (context->vertexShaderCode == NULL) {
+		fprintf(stderr, "Vertex shader code not loaded\n");
+		context->recompileShaderFlag = 0;
+		return;
+	}
+	if (context->fragmentShaderCode == NULL) {
+		fprintf(stderr, "Fragment shader code not loaded\n");
+		context->recompileShaderFlag = 0;
+		return;
+	}
+	if ((status = compile_shaders(context->programID,
+				      context->fragmentShaderCode,
+				      context->vertexShaderCode)) != 0) {
+		fprintf(stderr, "Failed to compile shader\n");
+		context->recompileShaderFlag = 0;
+		return;
+	}
 }

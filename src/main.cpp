@@ -102,30 +102,7 @@ int main() {
 		glfwMakeContextCurrent(window);
 		// hot reload shader
 		if (recompile_shader_flag) {
-			if ((status = read_shaders(&context)) != 0) {
-				fprintf(stderr, "Failed to read shader\n");
-				recompile_shader_flag = 0;
-				continue;
-			}
-			if (context.vertexShaderCode == NULL) {
-				fprintf(stderr,
-					"Vertex shader code not loaded\n");
-				recompile_shader_flag = 0;
-				continue;
-			}
-			if (context.fragmentShaderCode == NULL) {
-				fprintf(stderr,
-					"Fragment shader code not loaded\n");
-				recompile_shader_flag = 0;
-				continue;
-			}
-			if ((status = compile_shaders(
-				 programID, context.fragmentShaderCode,
-				 context.vertexShaderCode)) != 0) {
-				fprintf(stderr, "Failed to compile shader\n");
-				recompile_shader_flag = 0;
-				continue;
-			}
+			recompile_shader(&context);
 			recompile_shader_flag = 0;
 		}
 
