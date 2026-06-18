@@ -1,10 +1,14 @@
 #include <atomic>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <glad/glad.h>
 
+#include "glm/ext/matrix_transform.hpp"
 #include "shader.h"
 #include "shader_watcher.h"
 
@@ -90,6 +94,16 @@ int main() {
 
 	glUseProgram(programID);
 
+	glm::mat4 model = glm::mat4(1.0f);
+	glm::mat4 view = glm::mat4(1.0f);
+	glm::mat4 projection = glm::perspective(
+	    glm::radians(45.0f), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT,
+	    0.01f, 100.0f);
+	unsigned int u_Model = glGetUniformLocation(programID, "model");
+	unsigned int u_View = glGetUniformLocation(programID, "view");
+	unsigned int u_Projection =
+	    glGetUniformLocation(programID, "projection");
+
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
 			      (void *)0);
 	glEnableVertexAttribArray(0);
@@ -97,6 +111,8 @@ int main() {
 	pthread_create(&shader_reload_thread, NULL, setup_shader_reload_watcher,
 		       (void *)&context);
 	pthread_detach(shader_reload_thread);
+
+	model = glm::translate(model, glm::vec3(0.0f, 0.0f, -3.0f));
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwMakeContextCurrent(window);
@@ -111,6 +127,10 @@ int main() {
 		glfwPollEvents();
 		glClear(GL_COLOR_BUFFER_BIT);
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+
+		glUniformMatrix4fv(u_Model, 1, GL_FALSE, glm::value_ptr(model));
+		glUniformMatrix4fv(u_View, 1, GL_FALSE, glm::value_ptr(view));
+		glUniformMatrix4fv(u_Projection, 1, GL_FALSE, glm::value_ptr(projection));
 
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 
