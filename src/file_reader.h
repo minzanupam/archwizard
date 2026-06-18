@@ -7,9 +7,9 @@
 
 struct FileReadArgs {
 	const char *path;
-	const char **output;
+	char **output;
 };
 
-size_t read_file(const char *path, const char **output);
+size_t read_file(const char *path, char **output);
 
 void *read_file_parallel(void *args);

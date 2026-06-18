@@ -3,7 +3,7 @@
 
 #include "file_reader.h"
 
-size_t read_file(const char *path, const char **output) {
+size_t read_file(const char *path, char **output) {
 	FILE *f = fopen(path, "r");
 	if (f == NULL) {
 		fprintf(stderr, "Failed to read file: File not found: %s",
@@ -30,8 +30,8 @@ size_t read_file(const char *path, const char **output) {
 
 void *read_file_parallel(void *args) {
 	struct FileReadArgs *argsData = (FileReadArgs *)args;
-	const char *vertexShaderPath = argsData->path;
-	const char **vertexShaderCode = argsData->output;
-	ssize_t ret = read_file(vertexShaderPath, vertexShaderCode);
+	const char *path = argsData->path;
+	char **output = argsData->output;
+	ssize_t ret = read_file(path, output);
 	return (void *)ret;
 }

@@ -20,13 +20,12 @@ struct ShaderContext {
 #endif
 	const char *vertexShaderPath;
 	const char *fragmentShaderPath;
-	const char *vertexShaderCode;
-	const char *fragmentShaderCode;
 };
 
-int read_shaders(struct ShaderContext *context);
+int read_shaders(const char *vertexShaderPath, const char *fragmentShaderPath,
+		 char **vertexShaderCode, char **fragmentShaderCode);
 
-int compile_shaders(unsigned int programID, const char *vertexShaderCode,
-		    const char *fragmentShaderCode);
+int compile_shaders(unsigned int programID, char *vertexShaderCode,
+		    char *fragmentShaderCode);
 
 int recompile_shader(struct ShaderContext *context);

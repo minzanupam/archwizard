@@ -81,16 +81,19 @@ int main() {
 	    .recompileShaderFlag = &recompile_shader_flag,
 	    .vertexShaderPath = "shaders/basic/vertex.glsl",
 	    .fragmentShaderPath = "shaders/basic/fragment.glsl",
-	    .vertexShaderCode = NULL,
-	    .fragmentShaderCode = NULL,
 	};
 
-	if ((status = read_shaders(&context)) != 0) {
+	char *vertexShaderCode = NULL, *fragmentShaderCode = NULL;
+	if ((status = read_shaders(
+		 context.vertexShaderPath, context.fragmentShaderPath,
+		 &vertexShaderCode, &fragmentShaderCode)) != 0) {
 		fprintf(stderr, "Failed to load and use shaders\n");
 		return status;
 	}
-	compile_shaders(programID, context.vertexShaderCode,
-			context.fragmentShaderCode);
+	compile_shaders(programID, vertexShaderCode,
+			fragmentShaderCode);
+	free(vertexShaderCode);
+	free(fragmentShaderCode);
 
 	glUseProgram(programID);
 
@@ -130,7 +133,8 @@ int main() {
 
 		glUniformMatrix4fv(u_Model, 1, GL_FALSE, glm::value_ptr(model));
 		glUniformMatrix4fv(u_View, 1, GL_FALSE, glm::value_ptr(view));
-		glUniformMatrix4fv(u_Projection, 1, GL_FALSE, glm::value_ptr(projection));
+		glUniformMatrix4fv(u_Projection, 1, GL_FALSE,
+				   glm::value_ptr(projection));
 
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 

@@ -96,8 +96,8 @@ void *setup_shader_reload_watcher(void *args) {
 		}
 
 		// read shader files
-		const char *vertexShaderCode = NULL;
-		const char *fragmentShaderCode = NULL;
+		char *vertexShaderCode = NULL;
+		char *fragmentShaderCode = NULL;
 
 		struct FileReadArgs vertexShaderArgs = {
 		    .path = context->vertexShaderPath,

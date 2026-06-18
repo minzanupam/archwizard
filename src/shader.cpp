@@ -8,8 +8,8 @@
 #include "file_reader.h"
 #include "shader.h"
 
-int compile_shaders(unsigned int programID, const char *vertexShaderCode,
-		    const char *fragmentShaderCode) {
+int compile_shaders(unsigned int programID, char *vertexShaderCode,
+		    char *fragmentShaderCode) {
 	unsigned int vertexShaderID, fragmentShaderID;
 	int shaderStatus = 0, programStatus = 0;
 	char *logBuffer = (char *)malloc(LOG_BUF_S_MAX);
@@ -95,18 +95,16 @@ int compile_shaders(unsigned int programID, const char *vertexShaderCode,
 	return 0;
 }
 
-int read_shaders(struct ShaderContext *context) {
-	unsigned int programID = context->programID;
-	const char *vertexShaderCode = NULL;
-	const char *fragmentShaderCode = NULL;
-
+int read_shaders(const char *vertexShaderPath, const char *fragmentShaderPath,
+		 char **vertexShaderCode,
+		 char **fragmentShaderCode) {
 	struct FileReadArgs vertexShaderArgs = {
-	    .path = context->vertexShaderPath,
-	    .output = &vertexShaderCode,
+	    .path = vertexShaderPath,
+	    .output = vertexShaderCode,
 	};
 	struct FileReadArgs fragmentShaderArgs = {
-	    .path = context->fragmentShaderPath,
-	    .output = &fragmentShaderCode,
+	    .path = fragmentShaderPath,
+	    .output = fragmentShaderCode,
 	};
 	pthread_t t1, t2;
 	pthread_create(&t1, NULL, read_file_parallel,
@@ -118,35 +116,33 @@ int read_shaders(struct ShaderContext *context) {
 	pthread_join(t1, (void **)&vertexShaderFileReadStatus);
 	pthread_join(t2, (void **)&fragmentShaderFileReadStatus);
 
-	if (compile_shaders(programID, vertexShaderCode, fragmentShaderCode) !=
-	    0) {
-		fprintf(stderr, "Failed to complie shader\n");
-	}
-
-	free((void *)vertexShaderCode);
-	free((void *)fragmentShaderCode);
-
 	return 0;
 }
 
 int recompile_shader(struct ShaderContext *context) {
 	int status;
-	if ((status = read_shaders(context)) != 0) {
+	char *vertexShaderCode, *fragmentShaderCode;
+	if ((status = read_shaders(
+		 context->vertexShaderPath, context->fragmentShaderPath,
+		 &vertexShaderCode, &fragmentShaderCode)) != 0) {
 		fprintf(stderr, "Failed to read shader\n");
 		return -1;
 	}
-	if (context->vertexShaderCode == NULL) {
+	if (vertexShaderCode == NULL) {
 		fprintf(stderr, "Vertex shader code not loaded\n");
 		return -1;
 	}
-	if (context->fragmentShaderCode == NULL) {
+	if (fragmentShaderCode == NULL) {
 		fprintf(stderr, "Fragment shader code not loaded\n");
 		return -1;
 	}
 	if ((status = compile_shaders(context->programID,
-				      context->fragmentShaderCode,
-				      context->vertexShaderCode)) != 0) {
+				      vertexShaderCode,
+				      fragmentShaderCode)) != 0) {
 		fprintf(stderr, "Failed to compile shader\n");
 		return -1;
 	}
+	free(vertexShaderCode);
+	free(fragmentShaderCode);
+	return 0;
 }
