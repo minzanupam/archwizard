@@ -20,6 +20,8 @@ struct ShaderContext {
 #endif
 	const char *vertexShaderPath;
 	const char *fragmentShaderPath;
+	size_t vertexShaderPathSize;
+	size_t fragmentShaderPathSize;
 };
 
 int read_shaders(const char *vertexShaderPath, const char *fragmentShaderPath,

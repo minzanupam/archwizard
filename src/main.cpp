@@ -81,6 +81,8 @@ int main() {
 	    .recompileShaderFlag = &recompile_shader_flag,
 	    .vertexShaderPath = "shaders/basic/vertex.glsl",
 	    .fragmentShaderPath = "shaders/basic/fragment.glsl",
+	    .vertexShaderPathSize = 25,
+	    .fragmentShaderPathSize = 27,
 	};
 
 	char *vertexShaderCode = NULL, *fragmentShaderCode = NULL;
@@ -90,8 +92,7 @@ int main() {
 		fprintf(stderr, "Failed to load and use shaders\n");
 		return status;
 	}
-	compile_shaders(programID, vertexShaderCode,
-			fragmentShaderCode);
+	compile_shaders(programID, vertexShaderCode, fragmentShaderCode);
 	free(vertexShaderCode);
 	free(fragmentShaderCode);
 

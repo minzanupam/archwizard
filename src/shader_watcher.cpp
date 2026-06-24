@@ -5,16 +5,21 @@
 
 #ifdef __linux__
 #include <sys/inotify.h>
+#elif _WIN32
+#include <stringapiset.h>
+#include <windows.h>
 #endif
 
 #include "file_reader.h"
 #include "shader.h"
 #include "shader_watcher.h"
 
+#define SBUF_S 1 << 16 // 64KB
+
+#ifdef __linux__
 void *process_buffer_event(char *buf, ssize_t size, int fd,
 			   int *wd_vertex_shader, int *wd_fragment_shader,
 			   struct ShaderContext *context) {
-#ifdef __linux__
 	for (char *ptr = buf; ptr < buf + size;) {
 		struct inotify_event *event = (struct inotify_event *)ptr;
 
@@ -56,9 +61,17 @@ void *process_buffer_event(char *buf, ssize_t size, int fd,
 		// Move to the next event in the buffer
 		ptr += sizeof(struct inotify_event) + event->len;
 	}
-#endif
 	return NULL;
 }
+#endif
+
+#ifdef _WIN32
+VOID process_read_directory_change(DWORD dwErrorCode, DWORD dwNumberOfBytesTransfered,
+			     LPOVERLAPPED lpOverlapped) {
+	struct ShaderContext *context = (struct ShaderContext *)lpOverlapped;
+	*context->recompileShaderFlag = 1;
+}
+#endif
 
 void *setup_shader_reload_watcher(void *args) {
 	if (args == NULL) {
@@ -138,6 +151,64 @@ void *setup_shader_reload_watcher(void *args) {
 		// no error, set recompile shader flag to true
 		*context->recompileShaderFlag = 1;
 	}
+#elif _WIN32
+	DWORD dwVertexShaderPathSize = 2 * context->vertexShaderPathSize;
+	LPWSTR _lpwstrVertexShaderPath =
+	    (wchar_t *)malloc(dwVertexShaderPathSize);
+	if (!MultiByteToWideChar(CP_UTF8, 0, context->vertexShaderPath, -1,
+				 _lpwstrVertexShaderPath,
+				 dwVertexShaderPathSize)) {
+		DWORD errorCode = GetLastError();
+		fprintf(stderr, "**WIN32 API ERROR** error code: %lu\n",
+			errorCode);
+		return (void *)-1;
+	}
+	LPCWSTR lpcwstrVertexShaderPath = (LPCWSTR)_lpwstrVertexShaderPath;
+
+	DWORD dwFragmentShaderPathSize = 2 * context->fragmentShaderPathSize;
+	LPWSTR _lpwstrFragmentShaderPath =
+	    (wchar_t *)malloc(dwFragmentShaderPathSize);
+	if (!MultiByteToWideChar(CP_UTF8, 0, context->fragmentShaderPath, -1,
+				 _lpwstrFragmentShaderPath,
+				 dwFragmentShaderPathSize)) {
+		DWORD errorCode = GetLastError();
+		fprintf(stderr, "**WIN32 API ERROR** error code: %lu\n",
+			errorCode);
+		return (void *)-1;
+	}
+	LPCWSTR lpcwstrFragmentShaderPath = (LPCWSTR)_lpwstrFragmentShaderPath;
+
+	HANDLE hVertexShaderFile =
+	    CreateFileW(lpcwstrVertexShaderPath, GENERIC_READ,
+			FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+			FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hVertexShaderFile == INVALID_HANDLE_VALUE) {
+		DWORD errorCode = GetLastError();
+		fprintf(stderr, "**WIN32 API ERROR** error code: %lu\n",
+			errorCode);
+		fprintf(stderr, "Failed to open vertex shader file\n");
+		return (void *)-1;
+	}
+
+	LPCSTR lpBuf = (LPCSTR)malloc(SBUF_S);
+	DWORD lpBufSize;
+	DWORD dwStatus = 0;
+	if ((dwStatus = ReadDirectoryChangesW(
+		hVertexShaderFile,
+		(LPVOID)lpBuf,
+		SBUF_S,
+		0,
+		FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE,
+		&lpBufSize,
+		NULL,
+		process_read_directory_change
+	)) == ERROR_INVALID_FUNCTION) {
+		DWORD errorCode = GetLastError();
+		fprintf(stderr, "**WIN32 API ERROR** error code: %lu",
+			errorCode);
+		fprintf(stderr, "Failed to watch vertex shader file\n");
+	}
+
 #endif
 	return 0;
 }
