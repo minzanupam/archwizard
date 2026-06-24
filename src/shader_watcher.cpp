@@ -1,8 +1,11 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/inotify.h>
 #include <unistd.h>
+
+#ifdef __linux__
+#include <sys/inotify.h>
+#endif
 
 #include "file_reader.h"
 #include "shader.h"
@@ -11,6 +14,7 @@
 void *process_buffer_event(char *buf, ssize_t size, int fd,
 			   int *wd_vertex_shader, int *wd_fragment_shader,
 			   struct ShaderContext *context) {
+#ifdef __linux__
 	for (char *ptr = buf; ptr < buf + size;) {
 		struct inotify_event *event = (struct inotify_event *)ptr;
 
@@ -52,6 +56,7 @@ void *process_buffer_event(char *buf, ssize_t size, int fd,
 		// Move to the next event in the buffer
 		ptr += sizeof(struct inotify_event) + event->len;
 	}
+#endif
 	return NULL;
 }
 
@@ -61,6 +66,7 @@ void *setup_shader_reload_watcher(void *args) {
 		return NULL;
 	}
 	struct ShaderContext *context = (struct ShaderContext *)args;
+#ifdef __linux__
 	int fd = inotify_init();
 	if (fd == -1) {
 		perror("inotify_init");
@@ -132,5 +138,6 @@ void *setup_shader_reload_watcher(void *args) {
 		// no error, set recompile shader flag to true
 		*context->recompileShaderFlag = 1;
 	}
+#endif
 	return 0;
 }
